@@ -25,8 +25,7 @@ class Node:
             self._f = self.g + self._h
             
     def set_parent(self, parent):
-        if parent is not None:
-            self._parent = parent
+        self._parent = parent
         
     def _get_dist(self, node_A, node_B):
         dist_x = math.fabs(node_A[0] - node_B[0])
