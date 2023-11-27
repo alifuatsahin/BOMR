@@ -75,6 +75,50 @@ def draw_polygon(frame_in, qrobj):
             cv2.imshow('warp', warped)
 
         return frame_in
+    
+def red_filter(frame_in):
+    #convert the BGR image to HSV colour space
+    hsv = cv2.cvtColor(frame_in, cv2.COLOR_BGR2HSV)
+    #obtain the grayscale image of the original image
+    gray = cv2.cvtColor(frame_in, cv2.COLOR_BGR2GRAY)
+
+    #set the bounds for the red hue
+    lower_red = np.array([160,100,50])
+    upper_red = np.array([180,255,255])
+
+    #create a mask using the bounds set
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    #create an inverse of the mask
+    mask_inv = cv2.bitwise_not(mask)
+    #Filter only the red colour from the original image using the mask(foreground)
+    res = cv2.bitwise_and(frame, frame, mask=mask)
+    #Filter the regions containing colours other than red from the grayscale image(background)
+    background = cv2.bitwise_and(gray, gray, mask = mask_inv)
+    #convert the one channelled grayscale background to a three channelled image
+    background = np.stack((background,)*3, axis=-1)
+    #add the foreground and the background
+    #added_img = cv2.add(res, background)
+
+    #create resizable windows for the images
+    cv2.namedWindow("res", cv2.WINDOW_NORMAL)
+    #cv2.namedWindow("hsv", cv2.WINDOW_NORMAL)
+    #cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
+    #cv2.namedWindow("added", cv2.WINDOW_NORMAL)
+    #cv2.namedWindow("back", cv2.WINDOW_NORMAL)
+    #cv2.namedWindow("mask_inv", cv2.WINDOW_NORMAL)
+    #cv2.namedWindow("gray", cv2.WINDOW_NORMAL)
+
+    #display the images
+    #cv2.imshow("back", background)
+    #cv2.imshow("mask_inv", mask_inv)
+    #cv2.imshow("added",added_img)
+    #cv2.imshow("mask", mask)
+    #cv2.imshow("gray", gray)
+    #cv2.imshow("hsv", hsv)
+    cv2.imshow("res", res)
+    return(res)
+
+    
 
 # Connect to webcam
 cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
@@ -90,14 +134,52 @@ while cap.isOpened():
     ret, frame = cap.read()
 
     # Grayscale image
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
     start = time.perf_counter()
 
     qr_obj = get_qr_data(frame)
     cv2.putText(frame, f'Connected QR: {int(len(qr_obj))}', (30,200), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
     frame = draw_polygon(frame, qr_obj)
+    filtered = red_filter(frame)
+    gray_image = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+    _,thresh_image = cv2.threshold(gray_image, 50, 255, cv2.THRESH_BINARY)
+    cv2.imshow('gray',gray_image)
+    cv2.imshow('thresh', thresh_image)
+
+    contours, hierarchy = cv2.findContours(thresh_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    print(contours)
+
+    for i, contour in enumerate(contours):
+        if i == 0:
+            continue
+
+        epsilon = 0.1*cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+
+        cv2.drawContours(filtered, contour, 0, (0,0,0), 4)
+
+        x, y, w, h = cv2.boundingRect(approx)
+        x_mid = int(x + w/3)
+        y_mid = int(y + h/1.5)
+
+        coords = (x_mid, y_mid)
+        colour = (0,0,0)
+        font = cv2.FONT_HERSHEY_DUPLEX
+
+        if len(approx) == 3:
+            cv2.putText(frame, "Triangle", coords, font, 1, colour, 1)
+            print('Triangle')
+        if len(approx) == 4:
+            cv2.putText(frame, "Quadrilateral", coords, font, 1, colour, 1)
+            print('4')
+        if len(approx) == 5:
+            cv2.putText(frame, "Pentagon", coords, font, 1, colour, 1)
+            print('5')
+        if len(approx) == 6:
+            cv2.putText(frame, "Hexagon", coords, font, 1, colour, 1)
+            print('6')
 
     end = time.perf_counter()
     totalTime = end - start
