@@ -35,7 +35,7 @@ class Node:
         if dist_x > dist_y:
             dist = math.sqrt(2)*dist_y + (dist_x - dist_y)
         else:
-            dist = math.sqrt(2)*dist_x + (dist_x - dist_y)
+            dist = math.sqrt(2)*dist_x + (dist_y - dist_x)
         return dist
 
 class A_star:
@@ -108,6 +108,8 @@ class A_star:
                             del neighbour
                             neighbour = obj
                 else:
+                    neighbour.set_cost(current.g + dg)
+                    neighbour.set_parent(current)
                     heapq.heappush(open_set, neighbour)
 
                 if neighbour.g > current.g + dg:
