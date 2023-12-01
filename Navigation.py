@@ -21,10 +21,10 @@ def calculate_orientation(coords):
         x_end += coords[i][0]/4
         y_end += coords[i][0]/4
     start = calculate_centroid(coords)
-    return vector(start ,[x_end, y_end])
+    return vector(start, [x_end, y_end])
 
 def rel_orientation(vec_path, vec_robot): #if negative robot is on the right of the path, if positive robot is on the left of the path
-    return np.dot(vec_path, rot_90_CCW(vec_robot))
+    return np.sign(np.dot(vec_path, rot_90_CCW(vec_robot)))
 
 def rot_90_CCW(vec):
     return [-vec[1], vec[0]]
