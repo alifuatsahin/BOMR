@@ -6,15 +6,15 @@ import numpy as np
 
 class Node:
 
-    def __init__(self, index, goal):
-        self.index = index
+    def __init__(self, coord, goal):
+        self.coord = coord
         self.g = float('inf')
-        self._h = self._get_dist(self.index, goal)
+        self._h = self._get_dist(self.coord, goal)
         self._f = self.g + self._h
         self.parent = None
 
     def __eq__(self, other):
-        return self.index == other.index
+        return self.coord == other.coord
 
     def __lt__(self, other):
         return self._f < other._f
@@ -40,9 +40,9 @@ class Node:
 
 class A_star:
     
-    def __init__(self, grid):
+    def __init__(self, grid, camera_coords):
         self._grid = grid
-       
+        self._camera_coords = camera_coords
     
     def _get_movements(self, movements):
         if movements == "8n":
@@ -66,7 +66,7 @@ class A_star:
         construct = final_node
         
         while construct is not None:
-            path.append(construct)
+            path.append(self._camera_coords[self._grid.index(construct.coord)])
             construct = construct.parent
             
         return path
@@ -89,11 +89,11 @@ class A_star:
             if current in closed_set:
                 continue
             closed_set.append(current)
-            if current.index == goal:
+            if current.coord == goal:
                 return self._path_constructor(current)
             
             for dx, dy, dg in self._get_movements(movements):
-                coord = (current.index[0] + dx, current.index[1] + dy)
+                coord = (current.coord[0] + dx, current.coord[1] + dy)
                 if self._is_traversible(coord):
                     neighbour = Node(coord, goal)
                 else:

@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from PathFinding import A_star
+from Navigation import euclidean_distance
 
-def aruco_read(image, show_image):
+def aruco_read(image, transform):
 	ARUCO_DICT = {
 		"DICT_4X4_50": cv2.aruco.DICT_4X4_50,
 		"DICT_4X4_100": cv2.aruco.DICT_4X4_100,
@@ -34,50 +35,51 @@ def aruco_read(image, show_image):
 	aruco_det = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 
 	(corners, ids, rejected) = aruco_det.detectMarkers(image)
-	if np.all(ids) is None:
-		return None, None
+	if ids is None:
+		return None, image
+	elif transform and 0 in ids and 1 in ids and 2 in ids and 3 in ids:
+		pass
+	elif not transform and 4 in ids and 5 in ids:
+		pass
+	else:
+		return None, image
 
-	if len(corners) > 0:
-		coord_list = []
-		ids = ids.flatten()
-    
-		for (marker_corners, marker_ids) in zip(corners, ids):
-			corners = marker_corners.reshape((4,2))
-			(topLeft, topRight, bottomRight, bottomLeft) = corners
-			coord_list.append({'ID': marker_ids, 'POS': np.squeeze(corners)})			
-        
-			topRight = (int(topRight[0]), int(topRight[1]))
-			bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
-			bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
-			topLeft = (int(topLeft[0]), int(topLeft[1]))
+	coord_list = []
+	ids = ids.flatten()
+
+	for (marker_corners, marker_ids) in zip(corners, ids):
+		corners = marker_corners.reshape((4,2))
+		(topLeft, topRight, bottomRight, bottomLeft) = corners
+		coord_list.append({'ID': marker_ids, 'POS': np.squeeze(corners)})			
+	
+		topRight = (int(topRight[0]), int(topRight[1]))
+		bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+		bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+		topLeft = (int(topLeft[0]), int(topLeft[1]))
 		
-			if show_image:
-				cv2.line(image, topLeft, topRight, (0, 255, 0), 2)
-				cv2.line(image, topRight, bottomRight, (0, 255, 0), 2)
-				cv2.line(image, bottomRight, bottomLeft, (0, 255, 0), 2)
-				cv2.line(image, bottomLeft, topLeft, (0, 255, 0), 2)
-				
-				cX = int((topLeft[0] + bottomRight[0]) / 2.0)
-				cY = int((topLeft[1] + bottomRight[1]) / 2.0)
-				
-				cv2.circle(image, (cX, cY), 4, (0, 0, 255), -1)
-				cv2.putText(image, str(marker_ids),
-					(topLeft[0], topLeft[1] - 15), cv2.FONT_HERSHEY_SIMPLEX,
-					0.5, (0, 255, 0), 4)
-				print("[INFO] ArUco marker ID: {}".format(marker_ids))
+		cv2.line(image, topLeft, topRight, (0, 255, 0), 2)
+		cv2.line(image, topRight, bottomRight, (0, 255, 0), 2)
+		cv2.line(image, bottomRight, bottomLeft, (0, 255, 0), 2)
+		cv2.line(image, bottomLeft, topLeft, (0, 255, 0), 2)
+		
+		cX = int((topLeft[0] + bottomRight[0]) / 2.0)
+		cY = int((topLeft[1] + bottomRight[1]) / 2.0)
+		
+		cv2.circle(image, (cX, cY), 4, (0, 0, 255), -1)
+		# cv2.putText(image, str(marker_ids),
+		# 	(topLeft[0], topLeft[1] - 15), cv2.FONT_HERSHEY_SIMPLEX,
+		# 	0.5, (0, 255, 0), 4)
+		# print("[INFO] ArUco marker ID: {}".format(marker_ids))
 			
-		return coord_list, image
+	return coord_list, image
 
-def calculate_centroids(coords):
-	centroids = []
-	for coord in coords:
-		x_center = 0
-		y_center = 0
-		for i in range(4):
-			x_center += coord['POS'][i][0]/4
-			y_center += coord['POS'][i][1]/4
-		centroids.append([x_center, y_center])
-	return centroids
+def calculate_centroid(coords):
+    x_center = 0
+    y_center = 0
+    for i in range(4):
+        x_center += coords[i][0]/4
+        y_center += coords[i][1]/4
+    return [x_center, y_center]
 
 def define_grid(size, spacing, thresh):
 	background = np.zeros([size[0], size[1], 1], dtype=np.uint8)
@@ -127,12 +129,15 @@ def change_perpective(image, coords, size):
 	
 	return image
 
-def image_threshold(image, border_size):
+def image_threshold(image, border_size, pos):
 	gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 	blur = cv2.GaussianBlur(gray, (5,5), 0)
 	_, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 	
-	kernel =  np.ones((5, 5), np.uint8) 
+	if pos is not None:
+		thresh = delete_aruco(thresh, pos)
+
+	kernel = np.ones((5, 5), np.uint8) 
 	thresh = cv2.dilate(thresh, kernel, iterations=2)
 
 	contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -140,35 +145,104 @@ def image_threshold(image, border_size):
 	
 	return thresh
 
-# im = cv2.imread('env_final.jpg')
+def delete_aruco(thresh, coords):
+	for el in coords:
+		max_p = [0, 0]
+		min_p = [float('inf'), float('inf')]
+		if el.get('ID') == 4 or el.get('ID') == 5:
+			pos = el.get('POS')
+			for point in pos:
+				if point[0] > max_p[0]:
+					max_p[0] = int(point[0])
+				if point[0] < min_p[0]:
+					min_p[0] = int(point[0])
+				if point[1] > max_p[1]:
+					max_p[1] = int(point[1])
+				if point[1] < min_p[1]:
+					min_p[1] = int(point[1])
+			thresh = cv2.rectangle(thresh, min_p, max_p, 255, -1)
+	return thresh
+
+def find_pos(pos, grid, coord):
+	start = None
+	goal = None
+	if pos is not None:
+		for el in pos:
+			dist = float('inf')
+			center = calculate_centroid(el.get('POS'))
+			if el.get('ID') == 4:
+				for point in coord:
+					temp = euclidean_distance(point, center)
+					if temp < dist:
+						goal = grid[coord.index(point)]
+						dist = temp
+			if el.get('ID') == 5:
+				for point in coord:
+					temp = euclidean_distance(point, center)
+					if temp < dist:
+						start = grid[coord.index(point)]
+						dist = temp
+
+	return start, goal
+
+
 cap = cv2.VideoCapture(0)
 FPS = 10
+coords = None
+pos = None
 
 while cap.isOpened():
 	ret, image = cap.read()
-	size = (1000, 1000)
+	size = (500, 500)
 
-	(coords, image) = aruco_read(image, True)
 	if coords is None:
+		(coords, image) = aruco_read(image, True)
 		continue
+	else:
+		(temp_coords, temp_im) = aruco_read(image, True)
+		if temp_coords is not None:
+			coords = temp_coords
+			image = temp_im
+		image = change_perpective(image, coords, size)
 
-	centroids = calculate_centroids(coords)
+	if pos is None:
+		(pos, image) = aruco_read(image, False)
+		continue
+	else:
+		(temp_pos, temp_image) = aruco_read(image, False)
+		if temp_pos is not None:
+			pos = temp_pos
+			image = temp_image
 
-	image = change_perpective(image, coords, size)
-	thresh = image_threshold(image, 50)
+		thresh = image_threshold(image, 50, pos)
+		grid, coord, background = define_grid(size, 30, thresh)
 
-	grid, coord, background = define_grid(size, 50, thresh)
+		(start, goal) = find_pos(pos, grid, coord)
 
-	pathfinder = A_star(grid)
+		pathfinder = A_star(grid, coord)
 
-	path = pathfinder.find_path((0,0), (20,20))
+		path = pathfinder.find_path(start, goal)
 
 	for i in range(len(path)-1):
-		begin = grid.index(path[i].index)
-		end = grid.index(path[i+1].index)
-		image = cv2.line(image, coord[begin], coord[end], (0, 255, 0), 4)
+		image = cv2.line(image, path[i], path[i+1], (0, 255, 0), 4)
 
 	cv2.imshow('image', image)
-	#cv2.imshow('grid', background)
+	cv2.imshow('grid', background)
 
 	cv2.waitKey(int(1000/FPS))
+
+# size = (500, 500)
+
+# image = cv2.imread('env.jpg')
+
+# (temp_coords, temp_im) = aruco_read(image, True, True)
+# if temp_coords is not None:
+# 	coords = temp_coords
+# 	image = temp_im
+# image = change_perpective(image, coords, size)
+
+# (pos, image) = aruco_read(image, False, False)
+# thresh = image_threshold(image, 50, pos)
+
+# cv2.imshow('test', thresh)
+# cv2.waitKey(0)

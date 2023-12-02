@@ -1,10 +1,12 @@
 import numpy as np
+import math
+from tdmclient import ClientAsync, aw
 
 def euclidean_distance(pointA, pointB):
-    return (pointA[0] - pointB[0])**2 + (pointA[1] - pointB[1])**2
+    return math.sqrt((pointA[0] - pointB[0])**2 + (pointA[1] - pointB[1])**2)
 
 def vector(start_p, end_p):
-    return [end_p[1] - start_p[1], end_p[0] - start_p[0]]
+    return [end_p[0] - start_p[0], end_p[1] - start_p[1]]
 
 def calculate_centroid(coords):
     x_center = 0
@@ -25,6 +27,9 @@ def calculate_orientation(coords):
 
 def rel_orientation(vec_path, vec_robot): #if negative robot is on the right of the path, if positive robot is on the left of the path
     return np.sign(np.dot(vec_path, rot_90_CCW(vec_robot)))
+
+def rel_angle(vec_A, vec_B):
+    return math.acos(np.dot(vec_A, vec_B)/(np.norm(vec_A)*np.norm(vec_B)))
 
 def rot_90_CCW(vec):
     return [-vec[1], vec[0]]
@@ -52,3 +57,28 @@ class PD_controller:
 
     def control(self, prev_error, error):
         return self._P*error + self._D*(error - prev_error)
+    
+class astolfi_controller:
+    def __init__(self, k_rho, k_alpha, k_beta):
+        self._k_rho = k_rho
+        self._k_alpha = k_alpha
+        self._k_beta = k_beta
+    
+    def _calculate_parameters(self, pos, goal):
+        x = [1, 0]
+        theta = rel_angle(x, vector(pos, goal))
+        rho = euclidean_distance(pos, goal)
+        alpha = -theta + math.atan2(goal[1]-pos[1], goal[0]- pos[0])
+        beta = -theta - alpha
+        return rho, alpha, beta
+
+    def control(self, pos, goal):
+        rho, alpha, beta = self._calculate_parameters(pos, goal)
+        return self._k_rho*rho, self._k_alpha*alpha + self._k_beta*beta
+    
+def set_motors(nominal_speed, diff, node):
+    speeds = {
+        "motor.left.target": [nominal_speed + diff],
+        "motor.right.target": [nominal_speed - diff],
+    }
+    aw(node.set_variables(speeds))

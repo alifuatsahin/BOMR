@@ -18,7 +18,7 @@ class kalman:
         i = y - np.dot(self._H, x_est)
         j = np.eye(len(self._H)) 
         S = np.dot(self._H, np.dot(P_est, self._H.T)) + self._R
-        Kn = np.dot(np.dot(P_est, H.T), np.linalg.inv(S))
+        Kn = np.dot(np.dot(P_est, self._H.T), np.linalg.inv(S))
         
         x_final = x_est + np.dot(Kn, i)
         P_final = np.dot(j, np.dot(P_est, j.T)) + np.dot(Kn, np.dot(self._R, Kn.T))
