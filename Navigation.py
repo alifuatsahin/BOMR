@@ -20,8 +20,8 @@ def calculate_orientation(coords):
     x_end = 0
     y_end = 0
     for i in range(2):
-        x_end += coords[i][0]/4
-        y_end += coords[i][0]/4
+        x_end += coords[i][0]/2
+        y_end += coords[i][0]/2
     start = calculate_centroid(coords)
     return vector(start, [x_end, y_end])
 
@@ -37,9 +37,9 @@ def rot_90_CCW(vec):
 def calculate_error(path, robot_coords):
     robot_coord = calculate_centroid(robot_coords)
     prev_projection = -1
-    for i in range(len(path-1)):
+    for i in range(len(path)-1):
         robot_vec = vector(path[i], robot_coord)
-        path_vec = vector(path[i+1], robot_coord)
+        path_vec = vector(path[i], path[i+1])
         projection = np.dot(robot_vec, path_vec)
         if prev_projection > 0 and projection < 0:
             sign = rel_orientation(path_vec, robot_vec)
