@@ -41,7 +41,7 @@ def calculate_error(path, robot_coords):
     robot_coord = calculate_centroid(robot_coords)
     prev_projection = -1
     for i in range(len(path)-1):
-        robot_vec = vector(robot_coord, path[i])
+        robot_vec = vector(path[i], robot_coord)
         path_vec = vector(path[i], path[i+1])
         projection = np.dot(robot_vec, path_vec)
         if prev_projection > 0 and projection < 0:
