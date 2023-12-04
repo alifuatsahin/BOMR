@@ -1,22 +1,23 @@
 import numpy as np
 
-class kalman:
-    def __init__(self, F, G, Q, H, R):
-        self._F = F
-        self._G = G
+class extended_kalman:
+    def __init__(self, Q, H, R, sampling_rate):
         self._Q = Q
         self._H = H
-        self._R = R        
+        self._R = R
+        self._sampling_rate = sampling_rate        
 
     def _predict(self, x_init, P_init, u):
-        x_est = np.dot(self._F, x_init) + np.dot(self._G, u)
-        P_est = np.dot(np.dot(self._F, P_init), self._F.T) + self._Q
+        F = np.eye((3,3)) + [[0, 0, -u[0]*np.sin(x_init[2])], [0, 0, u[0]*np.cos(x_init[2])], [0, 0, 0]]*self._sampling_rate
+        G = [[np.cos(x_init[2]), 0], [np.sin(x_init[2]), 0], [0, 1]]
+        x_est = np.dot(F, x_init) + np.dot(G, u)
+        P_est = np.dot(np.dot(F, P_init), F.T) + self._Q
         
         return x_est, P_est
     
     def _correct(self, x_est, P_est, y):
         i = y - np.dot(self._H, x_est)
-        j = np.eye(len(self._H)) 
+        j = np.eye(len(self._H))
         S = np.dot(self._H, np.dot(P_est, self._H.T)) + self._R
         Kn = np.dot(np.dot(P_est, self._H.T), np.linalg.inv(S))
         

@@ -116,7 +116,7 @@ class A_star:
                     neighbour.set_cost(current.g + dg)
                     neighbour.set_parent(current)
                     
-        return []
+        return None
             
         
         

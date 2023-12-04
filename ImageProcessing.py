@@ -5,7 +5,7 @@ import numpy as np
 from PathFinding import A_star
 from Navigation import euclidean_distance
 
-def aruco_read(image, transform):
+def aruco_read(image, transform, start):
 	ARUCO_DICT = {
 		"DICT_4X4_50": cv2.aruco.DICT_4X4_50,
 		"DICT_4X4_100": cv2.aruco.DICT_4X4_100,
@@ -39,7 +39,9 @@ def aruco_read(image, transform):
 		return None, image
 	elif transform and 0 in ids and 1 in ids and 2 in ids and 3 in ids:
 		pass
-	elif not transform and 4 in ids and 5 in ids:
+	elif not transform and start and 4 in ids and 5 in ids:
+		pass
+	elif not transform and not start and (4 in ids or 5 in ids):
 		pass
 	else:
 		return None, image
@@ -86,8 +88,8 @@ def define_grid(size, spacing, thresh):
 
 	vert = size[0]//spacing
 	horz = size[1]//spacing
-	v_blank = (size[0] % spacing)//2 + vert
-	h_blank = (size[1] % spacing)//2 + horz
+	v_blank = (size[0] % spacing)//2 + spacing
+	h_blank = (size[1] % spacing)//2 + spacing
 
 	coord_init = (v_blank, h_blank)
 	grid = []
@@ -129,13 +131,13 @@ def change_perpective(image, coords, size):
 	
 	return image
 
-def image_threshold(image, border_size, pos):
+def image_threshold(image, border_size, robot_coords, goal_coords):
 	gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 	blur = cv2.GaussianBlur(gray, (5,5), 0)
 	_, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 	
-	if pos is not None:
-		thresh = delete_aruco(thresh, pos)
+	thresh = delete_aruco(thresh, robot_coords)
+	thresh = delete_aruco(thresh, goal_coords)
 
 	kernel = np.ones((5, 5), np.uint8) 
 	thresh = cv2.dilate(thresh, kernel, iterations=2)
@@ -145,92 +147,80 @@ def image_threshold(image, border_size, pos):
 	
 	return thresh
 
-def delete_aruco(thresh, coords):
-	for el in coords:
-		max_p = [0, 0]
-		min_p = [float('inf'), float('inf')]
-		if el.get('ID') == 4 or el.get('ID') == 5:
-			pos = el.get('POS')
-			for point in pos:
-				if point[0] > max_p[0]:
-					max_p[0] = int(point[0])
-				if point[0] < min_p[0]:
-					min_p[0] = int(point[0])
-				if point[1] > max_p[1]:
-					max_p[1] = int(point[1])
-				if point[1] < min_p[1]:
-					min_p[1] = int(point[1])
-			thresh = cv2.rectangle(thresh, min_p, max_p, 255, -1)
+def delete_aruco(thresh, pos):
+	max_p = [0, 0]
+	min_p = [float('inf'), float('inf')]
+	for point in pos:
+		if point[0] > max_p[0]:
+			max_p[0] = int(point[0])
+		if point[0] < min_p[0]:
+			min_p[0] = int(point[0])
+		if point[1] > max_p[1]:
+			max_p[1] = int(point[1])
+		if point[1] < min_p[1]:
+			min_p[1] = int(point[1])
+	thresh = cv2.rectangle(thresh, min_p, max_p, 255, -1)
 	return thresh
 
 def find_pos(pos, grid, coord):
-	start = None
-	goal = None
-	if pos is not None:
-		for el in pos:
-			dist = float('inf')
-			center = calculate_centroid(el.get('POS'))
-			if el.get('ID') == 4:
-				for point in coord:
-					temp = euclidean_distance(point, center)
-					if temp < dist:
-						goal = grid[coord.index(point)]
-						dist = temp
-			if el.get('ID') == 5:
-				for point in coord:
-					temp = euclidean_distance(point, center)
-					if temp < dist:
-						start = grid[coord.index(point)]
-						dist = temp
+	grid_c = None
+	dist = float('inf')
+	for point in coord:
+		temp = euclidean_distance(point, pos)
+		if temp < dist:
+			grid_c = grid[coord.index(point)]
+			dist = temp
 
-	return start, goal
+	return grid_c
 
+# def test():
+# 	cap = cv2.VideoCapture(0)
+# 	FPS = 10
+# 	coords = None
+# 	pos = None
+# 	size = (800, 800)
 
-cap = cv2.VideoCapture(0)
-FPS = 10
-coords = None
-pos = None
+# 	while cap.isOpened():
+# 		ret, image = cap.read()
 
-while cap.isOpened():
-	ret, image = cap.read()
-	size = (500, 500)
+# 		if coords is None:
+# 			(coords, image) = aruco_read(image, True)
+# 			continue
+# 		else:
+# 			(temp_coords, temp_im) = aruco_read(image, True)
+# 			if temp_coords is not None:
+# 				coords = temp_coords
+# 				image = temp_im
+# 			image = change_perpective(image, coords, size)
 
-	if coords is None:
-		(coords, image) = aruco_read(image, True)
-		continue
-	else:
-		(temp_coords, temp_im) = aruco_read(image, True)
-		if temp_coords is not None:
-			coords = temp_coords
-			image = temp_im
-		image = change_perpective(image, coords, size)
+# 		if pos is None:
+# 			(pos, image) = aruco_read(image, False)
+# 			continue
+# 		else:
+# 			(temp_pos, temp_image) = aruco_read(image, False)
+# 			if temp_pos is not None:
+# 				pos = temp_pos
+# 				image = temp_image
 
-	if pos is None:
-		(pos, image) = aruco_read(image, False)
-		continue
-	else:
-		(temp_pos, temp_image) = aruco_read(image, False)
-		if temp_pos is not None:
-			pos = temp_pos
-			image = temp_image
+# 			thresh = image_threshold(image, 70, pos)
+# 			grid, coord, background = define_grid(size, 60, thresh)
 
-		thresh = image_threshold(image, 50, pos)
-		grid, coord, background = define_grid(size, 30, thresh)
+# 			(start, goal) = find_pos(pos, grid, coord)
 
-		(start, goal) = find_pos(pos, grid, coord)
+# 			pathfinder = A_star(grid, coord)
 
-		pathfinder = A_star(grid, coord)
+# 			path = pathfinder.find_path(start, goal)
 
-		path = pathfinder.find_path(start, goal)
+# 		for i in range(len(path)-1):
+# 			image = cv2.line(image, path[i], path[i+1], (0, 255, 0), 4)
 
-	for i in range(len(path)-1):
-		image = cv2.line(image, path[i], path[i+1], (0, 255, 0), 4)
+# 		cv2.resize(background, (500,500))
+# 		# cv2.imshow('image', image)
+# 		cv2.imshow('grid', background)
 
-	cv2.imshow('image', image)
-	cv2.imshow('grid', background)
+# 		cv2.waitKey(int(1000/FPS))
 
-	cv2.waitKey(int(1000/FPS))
-
+# test()
 # size = (500, 500)
 
 # image = cv2.imread('env.jpg')
