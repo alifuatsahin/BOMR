@@ -9,7 +9,7 @@ class extended_kalman:
 
 	def predict(self, x_init, P_init, u):
 		F = np.eye(3) #+ np.array([[0, 0, -u[0]*np.sin(x_init[2])], [0, 0, u[0]*np.cos(x_init[2])], [0, 0, 0]])*self._sampling_rate
-		G = np.array([[np.cos(x_init[2]), 0], [np.sin(x_init[2]), 0], [0, -1]])*self._sampling_rate
+		G = np.array([[np.cos(x_init[2]), 0], [np.sin(x_init[2]), 0], [0, 1]])*self._sampling_rate
 		x_est = np.dot(F, x_init) + np.dot(G, u)
 		P_est = np.dot(np.dot(F, P_init), F.T) + self._Q
 		

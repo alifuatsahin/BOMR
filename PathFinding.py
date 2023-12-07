@@ -3,7 +3,6 @@ import math
 import heapq
 import numpy as np
 
-
 class Node:
 
     def __init__(self, coord, goal):
@@ -64,11 +63,25 @@ class A_star:
     def _path_constructor(self, final_node):
         path = []
         construct = final_node
+        prev_movement = None
         
         while construct is not None:
-            path.append(self._camera_coords[self._grid.index(construct.coord)])
+            prev_point = construct.coord
             construct = construct.parent
-            
+            if construct is not None:
+                if construct.coord[0] == prev_point[0]:
+                    movement = 'horizontal'
+                elif construct.coord[1] == prev_point[1]:
+                    movement = 'vertical'
+                else:
+                    movement = 'diagonal'
+
+                if prev_movement == movement:
+                    path[-1] = self._camera_coords[self._grid.index(prev_point)]
+                else:
+                    path.append(self._camera_coords[self._grid.index(prev_point)])
+                prev_movement = movement
+                        
         return path
     
     def _is_traversible(self, coord):
