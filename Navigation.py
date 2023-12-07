@@ -24,6 +24,13 @@ def calculate_orientation(coords):
     start = calculate_centroid(coords)
     return vector(start, [x_end, y_end])
 
+def calculate_state(coords):
+    x = [1, 0] #angle reference
+    pos = calculate_centroid(coords)
+    orientation = calculate_orientation(coords)
+    theta = -rel_angle(orientation, x)
+    return [pos[0], pos[1], theta]
+
 def rel_orientation(vec_path, vec_robot): #if negative robot is on the right of the path, if positive robot is on the left of the path
     return np.sign(np.dot(vec_path, rot_90_CCW(vec_robot)))
 
@@ -36,13 +43,10 @@ def rot_90_CCW(vec):
     return [-vec[1], vec[0]]
 
 def projected_position(path, robot_c, iter):
-    if iter > 0:
-        robot_vec = vector(path[iter+1], robot_c)
-        path_vec = vector(path[iter+1], path[iter])
-        projection = np.dot(robot_vec, path_vec)
-        return np.linalg.norm(path_vec) - projection
-    else:
-        return euclidean_distance(path[iter], path[iter+1])
+    robot_vec = vector(path[iter+1], robot_c)
+    path_vec = vector(path[iter+1], path[iter])
+    projection = np.dot(robot_vec, path_vec)
+    return np.linalg.norm(path_vec) - projection
 
 def calculate_error(path, robot_coords):
     robot_coord = calculate_centroid(robot_coords)
@@ -74,25 +78,23 @@ class astolfi_controller:
         self._k_alpha = k_alpha
         self._k_beta = k_beta
     
-    def _calculate_parameters(self, pos, goal):
-        x = [1, 0]
-        robot_c = calculate_centroid(pos)
-        robot_orientation = calculate_orientation(pos)
-        theta = rel_angle(x, robot_orientation)
-        rho = euclidean_distance(robot_c, goal)
-        alpha = rel_angle(robot_orientation, vector(robot_c, goal))
-        #alpha = -theta + math.atan2(goal[1] - robot_c[1], goal[0] - robot_c[0])
+    def _calculate_parameters(self, state, goal):
+        robot_orientation = [np.cos(state[2]), np.sin(state[2])]
+        theta = state[2]
+        rho = euclidean_distance(state[:2], goal)
+        alpha = rel_angle(vector(state[:2], goal), robot_orientation)
         beta = -theta - alpha
-        print(rho*180/np.pi, alpha*180/np.pi, beta*180/np.pi)
         return rho, alpha, beta
 
-    def control(self, pos, goal):
-        rho, alpha, beta = self._calculate_parameters(pos, goal)
+    def control(self, state, goal):
+        rho, alpha, beta = self._calculate_parameters(state, goal)
         return self._k_rho*rho, self._k_alpha*alpha + self._k_beta*beta
     
 
 # x = [1, 0]
-# y = [0, 1]
+# y = [1, 1]
+
+# print(rel_angle(x,y))
 
 # k = [2, -3]
 # robot_orientation = [1, math.sqrt(3)]
