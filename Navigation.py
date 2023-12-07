@@ -45,7 +45,7 @@ def rot_90_CCW(vec):
 def projected_position(path, robot_c, iter):
     robot_vec = vector(path[iter+1], robot_c)
     path_vec = vector(path[iter+1], path[iter])
-    projection = np.dot(robot_vec, path_vec)
+    projection = np.dot(robot_vec, path_vec)/(np.linalg.norm(path_vec)*np.linalg.norm(robot_vec))
     return np.linalg.norm(path_vec) - projection
 
 def calculate_error(path, robot_coords):
@@ -82,7 +82,7 @@ class astolfi_controller:
         robot_orientation = [np.cos(state[2]), np.sin(state[2])]
         theta = state[2]
         rho = euclidean_distance(state[:2], goal)
-        alpha = rel_angle(vector(state[:2], goal), robot_orientation)
+        alpha = rel_angle(robot_orientation, vector(state[:2], goal))
         beta = -theta - alpha
         return rho, alpha, beta
 

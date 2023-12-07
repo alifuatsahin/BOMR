@@ -135,16 +135,16 @@ def image_threshold(image, border_size, robot_coords, goal_coords):
 	gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 	blur = cv2.GaussianBlur(gray, (5,5), 0)
 	_, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-	
+
 	thresh = delete_aruco(thresh, robot_coords)
 	thresh = delete_aruco(thresh, goal_coords)
 
 	kernel = np.ones((5, 5), np.uint8) 
-	thresh = cv2.dilate(thresh, kernel, iterations=2)
+	thresh = cv2.dilate(thresh, kernel, iterations=3)
 
 	contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 	cv2.drawContours(thresh, contours, -1, 0, border_size)
-	
+
 	return thresh
 
 def delete_aruco(thresh, pos):
