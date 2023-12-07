@@ -25,7 +25,7 @@ def main(th):
 	prev_pos = prev_goal
 
 	#controller parameters
-	controller = astolfi_controller(k_rho=0.4, k_alpha=1.2, k_beta=-0.01)
+	controller = astolfi_controller(k_rho=0.4, k_alpha=1.1, k_beta=-0.01)
 	sampling_rate = 1/FPS #s
 	u = None
 
@@ -142,9 +142,11 @@ def main(th):
 						set_motors(th)
 						correction_start = False
 				else:
-					if euclidean_distance(state[:2], goal_c) > 30 and iter >=0:
-						if projected_position(path, state[:2], iter) < 25 or euclidean_distance(state[:2], path[iter]) < 30:
+					if euclidean_distance(state[:2], goal_c) > 50 and iter >=0:
+						if projected_position(path, state[:2], iter) < 100 or euclidean_distance(state[:2], path[iter]) < 80:
 							iter -= 1
+						if iter == -1:
+							iter = 0
 						u = controller.control(state, path[iter])
 						u = local_nn(th, u[0], u[1])
 						u = set_motors(th, u[0], u[1])
@@ -155,7 +157,7 @@ def main(th):
 
 			image = cv2.resize(image, (500,500))
 			background = cv2.resize(background, (500,500))
-			# time.sleep(0.1)
+			# time.sleep(sampling_rate)
 			cv2.imshow('background', background)
 			cv2.imshow('camera', image)
 			image = cv2.resize(image, (1000, 1000))
