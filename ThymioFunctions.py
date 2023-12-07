@@ -20,9 +20,9 @@ def set_motors(th, v=0, w=0):
 	return v, w
 
 def local_nn(th, v, w):
-	wl = [-1, -2, -3, 2, 1, 1, -1]
-	wr = [1, 2, 3, -2, -1, -1, 1]
-	scale = 35
+	wl = [-1, -2, -4, 2, 1, 0, 0]
+	wr = [1, 2, 4, -2, -1, 0, 0]
+	scale = 40
 	L = 95 #mm
 	speedL = np.dot(th["prox.horizontal"], wl)//scale
 	speedR = np.dot(th["prox.horizontal"], wr)//scale
