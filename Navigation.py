@@ -90,22 +90,3 @@ class astolfi_controller:
         rho, alpha, beta = self._calculate_parameters(state, goal)
         return self._k_rho*rho, self._k_alpha*alpha + self._k_beta*beta
     
-
-# x = [1, 0]
-# y = [1, 1]
-
-# print(rel_angle(x,y))
-
-# k = [2, -3]
-# robot_orientation = [1, math.sqrt(3)]
-
-# goal = [0,0]
-# robot_c = [-5, -5]
-
-# theta = rel_angle(x, robot_orientation)
-# rho = euclidean_distance(robot_c, goal)
-# alpha = -theta + math.atan2(np.cross(robot_to_goal, y), np.dot(robot_to_goal, x))
-# beta = -theta - alpha
-# print(theta*180/np.pi, alpha*180/np.pi, beta*180/np.pi)
-
-# print(np.dot(k, x))

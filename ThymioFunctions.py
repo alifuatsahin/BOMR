@@ -1,6 +1,4 @@
-from Navigation import rel_orientation
 import numpy as np
-import time
 
 def set_motors(th, v=0, w=0):
 	conv_factor = 450/140

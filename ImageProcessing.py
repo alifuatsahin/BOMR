@@ -1,8 +1,6 @@
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 
-from PathFinding import A_star
 from Navigation import euclidean_distance
 
 def aruco_read(image, transform, start):
@@ -34,7 +32,7 @@ def aruco_read(image, transform, start):
 	aruco_params = cv2.aruco.DetectorParameters()
 	aruco_det = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 
-	(corners, ids, rejected) = aruco_det.detectMarkers(image)
+	(corners, ids, _) = aruco_det.detectMarkers(image)
 	if ids is None:
 		return None, image
 	elif transform and 0 in ids and 1 in ids and 2 in ids and 3 in ids:
@@ -68,10 +66,6 @@ def aruco_read(image, transform, start):
 		cY = int((topLeft[1] + bottomRight[1]) / 2.0)
 		
 		cv2.circle(image, (cX, cY), 4, (0, 0, 255), -1)
-		# cv2.putText(image, str(marker_ids),
-		# 	(topLeft[0], topLeft[1] - 15), cv2.FONT_HERSHEY_SIMPLEX,
-		# 	0.5, (0, 255, 0), 4)
-		# print("[INFO] ArUco marker ID: {}".format(marker_ids))
 			
 	return coord_list, image
 
@@ -102,9 +96,6 @@ def define_grid(size, spacing, thresh):
 				background = cv2.circle(background, coord_init, 5, 255, -1)
 				grid.append((h,v))
 				coord.append(coord_init)
-				# cv2.putText(image, str(grid[-1]),
-				# 		(coord[-1][0], coord[-1][1]), cv2.FONT_HERSHEY_SIMPLEX,
-				# 		0.5, (0, 255, 0), 4, cv2.LINE_AA)
 			coord_init = (coord_init[0], coord_init[1] + spacing)
 			
 	return grid, coord, background
@@ -172,67 +163,3 @@ def find_pos(pos, grid, coord):
 			dist = temp
 
 	return grid_c
-
-# def test():
-# 	cap = cv2.VideoCapture(0)
-# 	FPS = 10
-# 	coords = None
-# 	pos = None
-# 	size = (800, 800)
-
-# 	while cap.isOpened():
-# 		ret, image = cap.read()
-
-# 		if coords is None:
-# 			(coords, image) = aruco_read(image, True)
-# 			continue
-# 		else:
-# 			(temp_coords, temp_im) = aruco_read(image, True)
-# 			if temp_coords is not None:
-# 				coords = temp_coords
-# 				image = temp_im
-# 			image = change_perpective(image, coords, size)
-
-# 		if pos is None:
-# 			(pos, image) = aruco_read(image, False)
-# 			continue
-# 		else:
-# 			(temp_pos, temp_image) = aruco_read(image, False)
-# 			if temp_pos is not None:
-# 				pos = temp_pos
-# 				image = temp_image
-
-# 			thresh = image_threshold(image, 70, pos)
-# 			grid, coord, background = define_grid(size, 60, thresh)
-
-# 			(start, goal) = find_pos(pos, grid, coord)
-
-# 			pathfinder = A_star(grid, coord)
-
-# 			path = pathfinder.find_path(start, goal)
-
-# 		for i in range(len(path)-1):
-# 			image = cv2.line(image, path[i], path[i+1], (0, 255, 0), 4)
-
-# 		cv2.resize(background, (500,500))
-# 		# cv2.imshow('image', image)
-# 		cv2.imshow('grid', background)
-
-# 		cv2.waitKey(int(1000/FPS))
-
-# test()
-# size = (500, 500)
-
-# image = cv2.imread('env.jpg')
-
-# (temp_coords, temp_im) = aruco_read(image, True, True)
-# if temp_coords is not None:
-# 	coords = temp_coords
-# 	image = temp_im
-# image = change_perpective(image, coords, size)
-
-# (pos, image) = aruco_read(image, False, False)
-# thresh = image_threshold(image, 50, pos)
-
-# cv2.imshow('test', thresh)
-# cv2.waitKey(0)

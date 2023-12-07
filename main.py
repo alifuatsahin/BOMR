@@ -157,6 +157,7 @@ def main(th):
 
 			image = cv2.resize(image, (500,500))
 			background = cv2.resize(background, (500,500))
+			# if you want to run in the Jupiter notebook, uncomment the following line
 			# time.sleep(sampling_rate)
 			cv2.imshow('background', background)
 			cv2.imshow('camera', image)
