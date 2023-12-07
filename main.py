@@ -7,7 +7,7 @@ from ImageProcessing import aruco_read, change_perpective, image_threshold, defi
 from Navigation import astolfi_controller, calculate_centroid, euclidean_distance, rel_angle, vector, projected_position, calculate_state
 from PathFinding import A_star
 from ThymioFunctions import set_motors, local_nn
-from Kalman_filter import extended_kalman	  
+from KalmanFilter import extended_kalman	  
 
 def main(th):
 	#image processing parameters
