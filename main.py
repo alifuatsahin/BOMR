@@ -136,11 +136,11 @@ def main(th):
 					else:
 						set_motors(th)
 
-			image = cv2.resize(image, (500,500))
-			# time.sleep(0.1)
-			cv2.imshow('background', background)
-			cv2.imshow('camera', image)
-			cv2.waitKey(int(1000/FPS))
+			# image = cv2.resize(image, (500,500))
+			time.sleep(0.1)
+			# cv2.imshow('background', background)
+			# cv2.imshow('camera', image)
+			# cv2.waitKey(int(1000/FPS))
 
 with Thymio.serial(port="COM9", refreshing_rate=0.1) as th:
 	dir(th)
