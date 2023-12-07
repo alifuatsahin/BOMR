@@ -4,132 +4,109 @@ import numpy as np
 import cv2
 
 from ImageProcessing import aruco_read, change_perpective, image_threshold, define_grid, find_pos
-from Navigation import rel_orientation, calculate_centroid, astolfi_controller, euclidean_distance, rel_angle, vector, calculate_orientation, projected_position
+from Navigation import astolfi_controller, calculate_centroid, euclidean_distance, rel_angle, vector, projected_position, calculate_state
 from PathFinding import A_star
+from ThymioFunctions import set_motors, local_nn
+from Kalman_filter import extended_kalman	  
 
-def set_motors(th, speedR=0, speedL=0):
-	conv_factor = 500/140
-	speedR = conv_factor*speedR
-	speedL = conv_factor*speedL
-	if speedR > 250:
-		speedR = 250
-	if speedL > 250:
-		speedL = 250
-	if speedR < 0:
-		if speedR < -250:
-			speedR = -250
-		speedR = 2**16+speedR
-	if speedL < 0:
-		if speedL < -250:
-			speedL = -250
-		speedL = 2**16+speedL
-	th.set_var("motor.left.target", int(speedL))
-	th.set_var("motor.right.target", int(speedR))
-
-def local_navigation(th):
-	wl = [3, 2, 1, -2, -3, 1, -1]
-	wr = [-3, -2, -1, 2, 3, -1, 1]
-	scale = 200
-	prev_time = 0
-
-	try:
-		while True:
-			if time.time_ns() - prev_time > 10**8:
-				nominal = 50
-				speedL = nominal + np.dot(th["prox.horizontal"], wl)//scale
-				speedR = nominal + np.dot(th["prox.horizontal"], wr)//scale
-				print(speedR, speedL)
-				if speedR < 0:
-					speedR = 2**16+speedR
-				if speedL < 0:
-					speedL = 2**16+speedL
-				set_motors(th, speedR, speedL)
-				prev_time = time.time_ns()
-			if th.get_var('button.center'):
-				break
-	except ValueError:
-		set_motors(th)
-
-	set_motors(th)
-
-def correct_orientation(th, robot_vec, goal_vec, speed):
-	speedR = rel_orientation(robot_vec, goal_vec)*speed
-	speedL = -speedR
-	print(speedR, speedL)
-	set_motors(th, int(speedR), int(speedL))
-	  
-
-def test(th):
+def main(th):
+	#image processing parameters
 	cap = cv2.VideoCapture(0)
 	FPS = 10
-	coords = None
-	pos = None
-	start = True
-	size = (800, 800)
-	prev_goal = [size[0]**2, size[1]**2]
-	c_scale = 1
-	controller = astolfi_controller(k_rho=c_scale*8, k_alpha=c_scale*45, k_beta=c_scale*-12)
 	spacing = 80 #mm
-	L = 100 #mm
-	R = 40 #mm
+	contour_thickness = 110 #mm
+
+	#initialization parameters
+	movement_start = True
+	transform_start = True
+	correction_start = True
+	size = (1000, 1000)
+	prev_goal = [size[0]**2, size[1]**2]
+	prev_pos = prev_goal
+
+	#controller parameters
+	controller = astolfi_controller(k_rho=0.4, k_alpha=1.2, k_beta=-0.01)
+	sampling_rate = 0.1 #s
+	u = None
+
+	#kalman filter parameters
+	H = np.eye(3) #fully observable system
+	Q = np.eye(3) * 0.0001
+	R = np.eye(3) * 0.0001
+	P = np.eye(3) #initial P
+
+	filter = extended_kalman(Q, H, R, sampling_rate)
 
 	while cap.isOpened():
-		ret, image = cap.read()
+		_, image = cap.read()
 
-		if coords is None:
+		if transform_start:
 			(coords, image) = aruco_read(image, transform=True, start=True)
+			if coords is not None:
+				transform_start = False
 			continue
 		else:
-			(temp_coords, temp_im) = aruco_read(image, transform=True, start=False)
-			if temp_coords is not None:
-				coords = temp_coords
-				image = temp_im
 			image = change_perpective(image, coords, size)
 
-		if pos is None:
-			(pos, image) = aruco_read(image, transform=False, start=True)
-			if pos is not None:
-				for el in pos:              
+		if movement_start:
+			(positions, image) = aruco_read(image, transform=False, start=True)
+			if positions is not None:
+				for el in positions:              
 					if el.get('ID') == 4:
 						robot_coords = el.get('POS')
-						pos_init = calculate_centroid(robot_coords)
+						aruco_robot = robot_coords
 					elif el.get('ID') == 5:
 						goal_coords = el.get('POS')
 					else:
 						pass
+				state = calculate_state(robot_coords)
+				goal_c = calculate_centroid(goal_coords)
+				movement_start = False
 			continue
 		else:
-			(temp_pos, temp_image) = aruco_read(image, transform=False, start=False)
-			if temp_pos is not None:
-				pos = temp_pos
-				image = temp_image
+			(pos, image) = aruco_read(image, transform=False, start=False)
 			
-			for el in pos:              
-				if el.get('ID') == 4:
-					robot_coords = el.get('POS')
-				elif el.get('ID') == 5:
-					goal_coords = el.get('POS')
-				else:
-					pass
+			robot_coords = None
+			
+			if pos is not None:
+				for el in pos:              
+					if el.get('ID') == 4:
+						robot_coords = el.get('POS')
+					elif el.get('ID') == 5:
+						goal_coords = el.get('POS')
+					else:
+						pass
 
-			robot_c = calculate_centroid(robot_coords)
 			goal_c = calculate_centroid(goal_coords)
+			if robot_coords is not None:
+				measured_state = calculate_state(robot_coords)
+			if u is not None and robot_coords is not None:
+				state, P = filter.correct(predicted_state, P, measured_state)
+			if u is not None and robot_coords is None:
+				state = predicted_state
+			if correction_start:
+				state = measured_state
+			
 
-			if euclidean_distance(goal_c, prev_goal) > 120:
+			if euclidean_distance(goal_c, prev_goal) > 120 or euclidean_distance(state[:2], prev_pos) > 200:
 				set_motors(th)
-				thresh = image_threshold(image, 80, robot_coords, goal_coords)
+				thresh = image_threshold(image, contour_thickness, aruco_robot, goal_coords)
 				grid, coord, background = define_grid(size, spacing, thresh)
-				start = find_pos(robot_c, grid, coord)
+				start = find_pos(state[:2], grid, coord)
 				goal = find_pos(goal_c, grid, coord)
 
 				pathfinder = A_star(grid, coord)
 				path = pathfinder.find_path(start, goal)
 				if path is not None:
-					start = True
+					prev_pos = state[:2]
 					prev_goal = goal_c
+					correction_start = True
+					path[0] = goal_c
+					path[-1] = [int(state[0]), int(state[1])]
 					iter = len(path) - 2 
 
 			else:
+				prev_pos = state[:2]
 				pass
 			
 			if path is None:
@@ -138,33 +115,29 @@ def test(th):
 			else:
 				for i in range(len(path)-1):
 					image = cv2.line(image, path[i], path[i+1], (0, 255, 0), 6)
-				image = cv2.line(image, pos_init, path[len(path)-1], (0, 255, 0), 6)
-				image = cv2.line(image, path[0], goal_c, (0, 255, 0), 6)
 
-				if start:
-					robot_vec = calculate_orientation(robot_coords)
-					goal_vec = vector(pos_init, path[iter])
+				if correction_start:
+					robot_vec = [np.cos(state[2]), np.sin(state[2])]
+					goal_vec = vector(path[-1], path[iter])
 					if abs(rel_angle(robot_vec, goal_vec)) > np.pi/18:
-						correct_orientation(th, robot_vec, goal_vec, 50)
+						set_motors(th, 0, -np.sign(rel_angle(robot_vec, goal_vec))*np.pi/4)
 					else:
 						set_motors(th)
-						start = False
+						correction_start = False
 				else:
-					if euclidean_distance(robot_c, goal_c) > 60:
-						if projected_position(path, robot_c, iter) < 25 or euclidean_distance(robot_c, path[iter]) < 35:
+					if euclidean_distance(state[:2], goal_c) > 30 and iter >=0:
+						if projected_position(path, state[:2], iter) < 25 or euclidean_distance(state[:2], path[iter]) < 30:
 							iter -= 1
-						if iter > 0:
-							(v, w) = controller.control(robot_coords, path[iter])
-						else:
-							(v, w) = controller.control(robot_coords, path[iter])
+						u = controller.control(state, path[iter])
+						u = local_nn(th, u[0], u[1])
+						predicted_state, P = filter.predict(state, P, u)
 
-						speedR = (2*v - w*L)/(2*R)
-						speedL = (2*v + w*L)/(2*R)
-						set_motors(th, speedR, speedL)
+						set_motors(th, u[0], u[1])
 					else:
 						set_motors(th)
 
 			image = cv2.resize(image, (500,500))
+			# time.sleep(0.1)
 			cv2.imshow('background', background)
 			cv2.imshow('camera', image)
 			cv2.waitKey(int(1000/FPS))
@@ -179,4 +152,4 @@ with Thymio.serial(port="COM9", refreshing_rate=0.1) as th:
 	for var in variables:
 		print(var)
 
-	test(th)
+	main(th)
