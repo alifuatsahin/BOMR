@@ -6,9 +6,12 @@ Welcome to our Thymio Robot Navigation Project! In this project, we have develop
 
 The project is structured into several key modules, each handling different aspects of robotic navigation. The main components include environment setup, pathfinding, motion control, pose estimation, and obstacle avoidance.
 
+https://github.com/alifuatsahin/BOMR/assets/123699292/0d5a2c18-b971-4100-b38c-eb068d12d9f6
+
 ## Run the Project
 
 Run the main.py file using Python:
+
 
 ```python
     python main.py
